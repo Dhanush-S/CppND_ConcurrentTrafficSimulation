@@ -19,9 +19,13 @@ template <class T>
 class MessageQueue
 {
 public:
+    void send(T &&msg);
+    T receive();
 
 private:
-    
+    std::mutex _mutex;
+    std::condition_variable _cond;
+    std::deque<T> _queue;
 };
 
 enum TrafficLightPhase {red , green};
@@ -37,7 +41,6 @@ class TrafficLight : public TrafficObject
 public:
     // constructor / desctructor
     TrafficLight();
-    ~TrafficLight();
     
     // getters / setters
     TrafficLightPhase getCurrentPhase();
@@ -56,6 +59,7 @@ private:
     // FP.4b : create a private member of type MessageQueue for messages of type TrafficLightPhase 
     // and use it within the infinite loop to push each new TrafficLightPhase into it by calling 
     // send in conjunction with move semantics.
+    MessageQueue<TrafficLightPhase> _messageQueue;
 
     std::condition_variable _condition;
     std::mutex _mutex;

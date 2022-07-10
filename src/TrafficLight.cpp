@@ -4,13 +4,20 @@
 
 /* Implementation of class "MessageQueue" */
 
-/* 
+ 
 template <typename T>
 T MessageQueue<T>::receive()
 {
     // FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait() 
     // to wait for and receive new messages and pull them from the queue using move semantics. 
     // The received object should then be returned by the receive function. 
+
+    std::unique_lock<std::mutex> unqLck(_mutex);
+    _cond.wait(unqLck, [this]{return !_queue.empty();}); // wait till notify_one is called by another thread
+    
+    T msg = std::move(_queue.back()); // move the message from queue to temp
+    _queue.pop_back(); // pop the element which was moved from the queue
+    return msg;
 }
 
 template <typename T>
@@ -18,8 +25,12 @@ void MessageQueue<T>::send(T &&msg)
 {
     // FP.4a : The method send should use the mechanisms std::lock_guard<std::mutex> 
     // as well as _condition.notify_one() to add a new message to the queue and afterwards send a notification.
+
+    std::lock_guard<std::mutex> lockGuard(_mutex);
+    _queue.push_back(std::move(msg));
+    _cond.notify_one();
 }
-*/
+
 
 /* Implementation of class "TrafficLight" */
 
@@ -28,6 +39,8 @@ float TrafficLight::getRandomCycleDuration(float startRange, float endRange)
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
     std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
     std::uniform_real_distribution<> dis(startRange, endRange);
+
+    return dis(gen);
 }
 
 TrafficLight::TrafficLight()
@@ -40,6 +53,12 @@ void TrafficLight::waitForGreen()
     // FP.5b : add the implementation of the method waitForGreen, in which an infinite while-loop 
     // runs and repeatedly calls the receive function on the message queue. 
     // Once it receives TrafficLightPhase::green, the method returns.
+    while(true)
+    {
+        auto trafficLightPhase = _messageQueue.receive();
+        if (trafficLightPhase == TrafficLightPhase::green)
+            return;
+    }
 }
 
 TrafficLightPhase TrafficLight::getCurrentPhase()
@@ -79,9 +98,12 @@ void TrafficLight::cycleThroughPhases()
         // if updateTime is greater than cycleDuration in seconds
         if(updateTime > cycleDuration)
         {
+            std::unique_lock<std::mutex> unqLock(_mutex);
             (_currentPhase == TrafficLightPhase::red) ? (_currentPhase = TrafficLightPhase::green) : (_currentPhase = TrafficLightPhase::red);
-            // TODO : update to messageQueue is pending
-
+            // copy to local variable in order to not remove ownership of _currentPhase 
+            auto temp = _currentPhase;
+            _messageQueue.send(std::move(temp));
+            unqLock.unlock();
 
             // set random cycle duration for next traffic phase update 
             cycleDuration = getRandomCycleDuration(4.0,6.0);
