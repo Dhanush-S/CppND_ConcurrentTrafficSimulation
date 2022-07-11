@@ -13,8 +13,9 @@ T MessageQueue<T>::receive()
     // The received object should then be returned by the receive function. 
 
     std::unique_lock<std::mutex> unqLck(_mutex);
-    _cond.wait(unqLck, [this]{return !_queue.empty();}); // wait till notify_one is called by another thread
+    _cond.wait(unqLck, [this]{return (!_queue.empty() && _isDataAvailable);}); // wait till notify_one is called by another thread
     
+    _isDataAvailable = false;
     T msg = std::move(_queue.back()); // move the message from queue to temp
     _queue.pop_back(); // pop the element which was moved from the queue
     return msg;
@@ -28,6 +29,7 @@ void MessageQueue<T>::send(T &&msg)
 
     std::lock_guard<std::mutex> lockGuard(_mutex);
     _queue.push_back(std::move(msg));
+    _isDataAvailable = true;
     _cond.notify_one();
 }
 
@@ -87,7 +89,6 @@ void TrafficLight::cycleThroughPhases()
     auto startTime = std::chrono::high_resolution_clock::now();
     float cycleDuration = getRandomCycleDuration(4.0,6.0);
 
-    std::cout << "RandomCycleDuration = " << cycleDuration << std::endl;
     while(true)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

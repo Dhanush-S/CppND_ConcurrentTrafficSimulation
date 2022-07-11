@@ -26,6 +26,7 @@ private:
     std::mutex _mutex;
     std::condition_variable _cond;
     std::deque<T> _queue;
+    bool _isDataAvailable {false};
 };
 
 enum TrafficLightPhase {red , green};
