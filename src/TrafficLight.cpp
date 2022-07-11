@@ -13,7 +13,9 @@ T MessageQueue<T>::receive()
     // The received object should then be returned by the receive function. 
 
     std::unique_lock<std::mutex> unqLck(_mutex);
-    _cond.wait(unqLck, [this]{return (!_queue.empty() && _isDataAvailable);}); // wait till notify_one is called by another thread
+    // wait till notify_one is called by another thread
+    // check also _isDataAvailable to handle spurious wakeups
+    _cond.wait(unqLck, [this]{return (!_queue.empty() && _isDataAvailable);}); 
     
     _isDataAvailable = false;
     T msg = std::move(_queue.back()); // move the message from queue to temp
@@ -36,6 +38,7 @@ void MessageQueue<T>::send(T &&msg)
 
 /* Implementation of class "TrafficLight" */
 
+// source : https://en.cppreference.com/w/cpp/numeric/random/uniform_real_distribution
 float TrafficLight::getRandomCycleDuration(float startRange, float endRange)
 {
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
